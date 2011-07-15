@@ -30,6 +30,15 @@ class StalkerTest < Test::Unit::TestCase
     Stalker.work_one_job
     assert_equal val, $result
   end
+  
+  test "enqueue using YAML to serialize and work a job" do
+    val = rand(999999)
+    Stalker.job('my.job') { |args| $result = args['val'] }
+    Stalker.enqueue_yaml('my.job', :val => val)
+    Stalker.prep
+    Stalker.work_one_job
+    assert_equal val, $result	
+  end
 
   test "invoke error handler when defined" do
     with_an_error_handler

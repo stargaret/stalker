@@ -20,6 +20,17 @@ module Stalker
   rescue Beanstalk::NotConnected => e
     failed_connection(e)
   end
+  
+  def enqueue_yaml(job, args={}, opts={})
+    pri   = opts[:pri]   || 65536
+    delay = [0, opts[:delay].to_i].max  
+    ttr   = opts[:ttr]   || 120
+    beanstalk.use job
+    obj = YAML.dump([job.to_s, args])
+    beanstalk.put obj, pri, delay, ttr
+  rescue Beanstalk::NotConnected => e
+    failed_connection(e)
+  end
 
   def job(j, &block)
     @@handlers ||= {}
@@ -68,7 +79,8 @@ module Stalker
 
   def work_one_job
     job = beanstalk.reserve
-    name, args = JSON.parse job.body
+    is_yaml = job.body.start_with?("---")
+    name, args = is_yaml ? YAML::load(job.body) : JSON.parse(job.body)
     log_job_begin(name, args)
     handler = @@handlers[name]
     raise(NoSuchJob, name) unless handler
